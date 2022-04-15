@@ -31,9 +31,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/seedrandom/3.0.5/seedrandom.min.js"></script>
 
     <script>
-      function shuffleArray(arr) {
+      function shuffleArray(sketch, arr) {
         return arr
-          .map(value => ({ value, sort: Math.random() }))
+          .map(value => ({ value, sort: sketch.random(1) }))
           .sort((a, b) => a.sort - b.sort)
           .map(({ value }) => value)
       }
@@ -59,18 +59,17 @@
         }
       }
       function levelToMargin(r, level) {
-        const magic = [0, 0.4, 1, 1.5, 2, 3.5, 5]
+        const magic = [0, 0.3, 3.5, 7, 2, 5]
         return r * magic[level];
       }
 
       let config = {
-        seed: Math.floor(Math.random(1)*(1<<16)),
+        seed: 18811,//Math.floor(Math.random(1)*(1<<16)),
         PERLIN_PREDKOZKA: 400,
         LOPACITY_CONST: 100,
-        NUM_LEVELS: 4,
+        NUM_LEVELS: 6,
         MONTE_KOKOT: 20,
       }
-      config.levelPermutation = shuffleArray(Array.from(Array(config.NUM_LEVELS).keys()));
 
       let noiseNormalizer = (x) => {
         x = x*2;
@@ -95,7 +94,7 @@
       }
       let p5sketch;
       let doesCollide = (sketch, x, y, r, level) => {
-        for (let i = 0; i < Math.max((level**7) * config.MONTE_KOKOT, 4); ++i) {
+        for (let i = 0; i < Math.max((level**3) * config.MONTE_KOKOT, 4); ++i) {
           let xx = sketch.random(1) * 2 - 1;
           let yy = sketch.random(1) * 2 - 1
           if (xx**2 + yy**2 > 1) {
@@ -105,7 +104,6 @@
           yy = y + Math.floor(yy * levelToMargin(r, level))
           
           const index = 4 * (yy * sketch.width + xx);
-          // sketch.circle(xx, yy, 4)
           for (let i = 0; i < 3; ++i) {
             if (sketch.pixels[index + i] !== 255) {
               return true;
@@ -135,11 +133,15 @@
           p5sketch = sketch;
           let myrng = new Math.seedrandom(config.seed);
           console.log(`seeded with ${config.seed}`);
-          sketch.randomSeed(config.seed);
+          sketch.randomSeed(config.seed + Math.floor(Math.random() * 100));
           sketch.noiseSeed(myrng() * 100000);
-
+          
+          /* Generate level permutation only after setting the seed */
+          config.levelPermutation = shuffleArray(sketch, Array.from(Array(config.NUM_LEVELS).keys()));
+    
           /* Creating canvas with shadowy edges (shadows defined in css) */
-          sketch.createCanvas(sketch.windowWidth*15/16, sketch.windowHeight-sketch.windowWidth*1/16);
+          // sketch.createCanvas(sketch.windowWidth*15/16, sketch.windowHeight-sketch.windowWidth*1/16);
+          sketch.createCanvas(1920, 1024);
           sketch.background(255);
           sketch.rectMode(sketch.CENTER);
           sketch.ellipseMode(sketch.CENTER);
@@ -150,13 +152,10 @@
           vh = sketch.height / 100;
           vmin = Math.min(vw, vh);
           vmax = Math.max(vw, vh);
-          
-          const store = new SquareStore()
-          store.add([100,100])
-          /* Signature */
-          sketch.fill(0, 0, 0);
 
-          doesCollide(sketch, 300, 540, 4, 3);
+          sketch.fill(0,0,0)
+          /* Setup noise */
+          sketch.noiseDetail(2, 0.5)
         };
 
         sketch.draw = () => {
@@ -167,7 +166,8 @@
             const x = Math.floor(sketch.random(sketch.width))
             const y = Math.floor(sketch.random(sketch.height))
             let radius = 4;
-            const contour = Math.floor(adamovVynalez(sketch, x / config.PERLIN_PREDKOZKA, y / config.PERLIN_PREDKOZKA) * config.NUM_LEVELS)
+            const contour = Math.floor(
+                adamovVynalez(sketch, 1 * x / config.PERLIN_PREDKOZKA, y / config.PERLIN_PREDKOZKA) * config.NUM_LEVELS)
             const level = config.levelPermutation[contour];
             if (level >= config.NUM_LEVELS - 2){
               radius = Math.floor(Math.random() * (4 - (config.NUM_LEVELS - level))  + 1)
