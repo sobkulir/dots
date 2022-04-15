@@ -61,8 +61,8 @@
       let config = {
         seed: Math.floor(Math.random(1)*(1<<16)),
         INVERTED: false,
-        PERLIN_PREDKOZKA0: 1500,
-        PERLIN_PREDKOZKA1: 2000,
+        PERLIN_PREDKOZKA0: 3000,
+        PERLIN_PREDKOZKA1: 1000,
         PERLIN_PREDKOZKA2: 2000,
         PERLIN_PREDKOZKA3: 1000,
         LOPACITY_CONST: 100,
@@ -169,10 +169,10 @@
                 adamovVynalez(sketch, (x + y / 100) / div, y / div, klavir) * max_contours)
             
             let cc = 0;
-            for (let j = 0; j < 50; ++j) {
-              cc = getContour(x, y, config.PERLIN_PREDKOZKA0, cc + (j+1) * 10, 2 + 2 * (j % 3 == 0))
+            for (let j = 0; j < 40; ++j) {
+              cc = getContour(x, y, config.PERLIN_PREDKOZKA0, cc + (j+1) * 30, 4)
             }
-            // const c1 = getContour(x, y, config.PERLIN_PREDKOZKA1, cc + 100, 4)
+            const c1 = getContour(x, y, config.PERLIN_PREDKOZKA1, cc + 5000, 4)
             // const c2 = getContour(x, y, config.PERLIN_PREDKOZKA2, c1 + 200, 9)
             const c3 = getContour(x, y, config.PERLIN_PREDKOZKA3, cc + 10000, config.NUM_LEVELS)
             const contour = c3;
