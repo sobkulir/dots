@@ -60,10 +60,11 @@
 
       let config = {
         seed: Math.floor(Math.random(1)*(1<<16)),
-        INVERTED: true,
-        PERLIN_PREDKOZKA0: 1552,
-        PERLIN_PREDKOZKA1: 403,
+        INVERTED: false,
+        PERLIN_PREDKOZKA0: 1400,
+        PERLIN_PREDKOZKA1: 2000,
         PERLIN_PREDKOZKA2: 2000,
+        PERLIN_PREDKOZKA3: 1000,
         LOPACITY_CONST: 100,
         NUM_LEVELS: 5,
         MONTE_KOKOT: 20,
@@ -163,14 +164,18 @@
             const x = Math.floor(sketch.random(sketch.width))
             const y = Math.floor(sketch.random(sketch.height))
             let radius = 5;
-            let getContour = (x, y, div, klavir) =>
+            let getContour = (x, y, div, klavir, max_contours) =>
               Math.floor(
-                adamovVynalez(sketch, (x + y / 100) / div, y / div, klavir) * config.NUM_LEVELS)
+                adamovVynalez(sketch, (x + y / 100) / div, y / div, klavir) * max_contours)
             
-            const c0 = getContour(x, y, config.PERLIN_PREDKOZKA0, 0)
-            const c1 = getContour(x, y, config.PERLIN_PREDKOZKA1, c0 + 100)
-            const c2 = getContour(x, y, config.PERLIN_PREDKOZKA2, c1 + 200)
-            const contour = c2;
+            let cc = 0;
+            for (let j = 0; j < 50; ++j) {
+              cc = getContour(x, y, config.PERLIN_PREDKOZKA0, cc + (j+1) * 10, 2)
+            }
+            // const c1 = getContour(x, y, config.PERLIN_PREDKOZKA1, cc + 100, 4)
+            // const c2 = getContour(x, y, config.PERLIN_PREDKOZKA2, c1 + 200, 9)
+            const c3 = getContour(x, y, config.PERLIN_PREDKOZKA3, cc + 10000, config.NUM_LEVELS)
+            const contour = c3;
             const level = config.levelPermutation[contour];
             if (level >= config.NUM_LEVELS - 2){
               radius = Math.floor(Math.random() * (radius - 1.2 * (config.NUM_LEVELS - level))  + 1)
