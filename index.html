@@ -61,7 +61,7 @@
       let config = {
         seed: Math.floor(Math.random(1)*(1<<16)),
         INVERTED: false,
-        PERLIN_PREDKOZKA0: 1400,
+        PERLIN_PREDKOZKA0: 1500,
         PERLIN_PREDKOZKA1: 2000,
         PERLIN_PREDKOZKA2: 2000,
         PERLIN_PREDKOZKA3: 1000,
@@ -170,7 +170,7 @@
             
             let cc = 0;
             for (let j = 0; j < 50; ++j) {
-              cc = getContour(x, y, config.PERLIN_PREDKOZKA0, cc + (j+1) * 10, 2)
+              cc = getContour(x, y, config.PERLIN_PREDKOZKA0, cc + (j+1) * 10, 2 + 2 * (j % 3 == 0))
             }
             // const c1 = getContour(x, y, config.PERLIN_PREDKOZKA1, cc + 100, 4)
             // const c2 = getContour(x, y, config.PERLIN_PREDKOZKA2, c1 + 200, 9)
