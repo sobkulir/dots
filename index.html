@@ -21,11 +21,6 @@
         box-shadow: 0 5px 30px 0 rgba(0, 0, 0, 0.1);
       }
     </style>
-    <!--
-    <script src="scripts/p5.0-8-0.min.js"></script>
-    <script src="scripts/p5.sound.min.js"></script>
-    <script src="scripts/p5.dom.min.js"></script>
-    -->
     <script src="https://cdn.jsdelivr.net/npm/p5@1.4.1/lib/p5.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.2.0/addons/p5.sound.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/seedrandom/3.0.5/seedrandom.min.js"></script>
@@ -59,15 +54,18 @@
         }
       }
       function levelToMargin(r, level) {
-        const magic = [0, 0.3, 3.5, 7, 2, 5]
+        const magic = [0, 0.3, 3, 3.5, 14, 5]
         return r * magic[level];
       }
 
       let config = {
-        seed: 18811,//Math.floor(Math.random(1)*(1<<16)),
-        PERLIN_PREDKOZKA: 400,
+        seed: Math.floor(Math.random(1)*(1<<16)),
+        INVERTED: false,
+        PERLIN_PREDKOZKA0: 1552,
+        PERLIN_PREDKOZKA1: 400,
+        PERLIN_PREDKOZKA2: 2000,
         LOPACITY_CONST: 100,
-        NUM_LEVELS: 6,
+        NUM_LEVELS: 5,
         MONTE_KOKOT: 20,
       }
 
@@ -77,8 +75,8 @@
           - 12737 / (241 * Math.sqrt(2323240000 * x ** 2 - 4391492000 * x + 2110825413) + 11616200 * x - 10978730) ** (1 / 3) + 235);
         return 3 * (1 - t) * t ** 2+t ** 3;
       };
-      let adamovVynalez = (sketch, x, y) => {
-        return noiseNormalizer(sketch.noise(x, y));
+      let adamovVynalez = (sketch, ...dims) => {
+        return noiseNormalizer(sketch.noise(...dims));
       }
 
       P5 = p5;
@@ -94,33 +92,24 @@
       }
       let p5sketch;
       let doesCollide = (sketch, x, y, r, level) => {
-        for (let i = 0; i < Math.max((level**3) * config.MONTE_KOKOT, 4); ++i) {
+        const margin = levelToMargin(r, level);
+        for (let i = 0; i < Math.max(Math.floor(margin**2) * config.MONTE_KOKOT, 4); ++i) {
           let xx = sketch.random(1) * 2 - 1;
           let yy = sketch.random(1) * 2 - 1
           if (xx**2 + yy**2 > 1) {
             continue;
           }
-          xx = x + Math.floor(xx * levelToMargin(r, level))
-          yy = y + Math.floor(yy * levelToMargin(r, level))
+          xx = x + Math.floor(xx * margin)
+          yy = y + Math.floor(yy * margin)
           
           const index = 4 * (yy * sketch.width + xx);
           for (let i = 0; i < 3; ++i) {
-            if (sketch.pixels[index + i] !== 255) {
+            if (sketch.pixels[index + i] !== (config.INVERTED ? 0 : 255)) {
               return true;
             }
           }
         }
         return false;
-      }
-
-      let bodkaVoVrstevnici = (sketch, x, y, r, level) => {
-        const c = Math.floor(sketch.random(1)**(1/3) * config.NUM_LEVELS);
-        if (level < c) {
-          return;
-        }
-
-        // const color = Math.floor(level * (255 / config.NUM_LEVELS));
-        sketch.circle(x, y, r)
       }
 
       new P5((sketch) => {
@@ -129,31 +118,39 @@
         }
 
         sketch.setup = () => {
+
           /* Seeding */
           p5sketch = sketch;
           let myrng = new Math.seedrandom(config.seed);
           console.log(`seeded with ${config.seed}`);
-          sketch.randomSeed(config.seed + Math.floor(Math.random() * 100));
+          sketch.randomSeed(config.seed);
           sketch.noiseSeed(myrng() * 100000);
           
           /* Generate level permutation only after setting the seed */
           config.levelPermutation = shuffleArray(sketch, Array.from(Array(config.NUM_LEVELS).keys()));
+          // config.levelPermutation = Array.from(Array(config.NUM_LEVELS).keys());
     
           /* Creating canvas with shadowy edges (shadows defined in css) */
           // sketch.createCanvas(sketch.windowWidth*15/16, sketch.windowHeight-sketch.windowWidth*1/16);
           sketch.createCanvas(1920, 1024);
-          sketch.background(255);
           sketch.rectMode(sketch.CENTER);
           sketch.ellipseMode(sketch.CENTER);
-
-
           /* Some handy helper vars */
           vw = sketch.width / 100;
           vh = sketch.height / 100;
           vmin = Math.min(vw, vh);
           vmax = Math.max(vw, vh);
-
-          sketch.fill(0,0,0)
+          
+          if (config.INVERTED) {
+            sketch.background(0);
+            sketch.fill(255, 255, 255)
+            sketch.stroke(255)
+          } else {
+            sketch.background(255);
+            sketch.fill(0,0,0)
+            sketch.stroke(0)
+          }
+          
           /* Setup noise */
           sketch.noiseDetail(2, 0.5)
         };
@@ -165,12 +162,18 @@
           for (let i = 0; i < 1000; ++i) {
             const x = Math.floor(sketch.random(sketch.width))
             const y = Math.floor(sketch.random(sketch.height))
-            let radius = 4;
-            const contour = Math.floor(
-                adamovVynalez(sketch, 1 * x / config.PERLIN_PREDKOZKA, y / config.PERLIN_PREDKOZKA) * config.NUM_LEVELS)
+            let radius = 5;
+            let getContour = (x, y, div, klavir) =>
+              Math.floor(
+                adamovVynalez(sketch, (x + y / 100) / div, y / div, klavir) * config.NUM_LEVELS)
+            
+            const c0 = getContour(x, y, config.PERLIN_PREDKOZKA0, 0)
+            const c1 = getContour(x, y, config.PERLIN_PREDKOZKA1, c0 + 100)
+            const c2 = getContour(x, y, config.PERLIN_PREDKOZKA2, c1 + 200)
+            const contour = c2;
             const level = config.levelPermutation[contour];
             if (level >= config.NUM_LEVELS - 2){
-              radius = Math.floor(Math.random() * (4 - (config.NUM_LEVELS - level))  + 1)
+              radius = Math.floor(Math.random() * (radius - 1.2 * (config.NUM_LEVELS - level))  + 1)
             }
 
             if (seenXY.contains(x, y, 2 * levelToMargin(radius, level))) {
@@ -187,11 +190,14 @@
         };
         
         sketch.keyPressed = (event) => {
-          if (event.key == 's') {
+          if (event.key == 'p') {
             p5sketch.noLoop();
           }
           if (event.key == 'r') {
             p5sketch.loop();
+          }
+          if (event.key == 's') {
+            p5sketch.save("seed_" + config.seed)
           }
         };
 
