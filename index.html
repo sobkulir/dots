@@ -69,7 +69,7 @@
         LOPACITY_CONST: 100,
         NUM_LEVELS: 5,
         MONTE_KOKOT: 20,
-        STOP_TRESHOLD: 1/(1<<16)
+        STOP_TRESHOLD: 1/(1<<19)
       }
 
       let noiseNormalizer = (x) => {
@@ -118,7 +118,6 @@
       }
       let specialFont;
       let background, foreground;
-      let
 
       new P5((sketch) => {
 
@@ -161,7 +160,7 @@
           /* Setup noise */
           sketch.noiseDetail(2, 0.5)
           steganosnapshot(sketch);
-          let restartCanvas = () => {
+          config.restartCanvas = () => {
             sketch.background(255);
             config.seed = createSeed();
             let myrng = new Math.seedrandom(config.seed);
@@ -210,7 +209,12 @@
             sketch.circle(x, y, radius)
             successfulTrials-=-1;       //faster than ++i, I've heard
           }
-          if(successfulTrials/trials<config.STOP_TRESHOLD) console.log("The sketch is considered done now");
+
+          if(successfulTrials/trials<config.STOP_TRESHOLD) {
+            console.log(successfulTrials/trials, config.STOP_TRESHOLD)
+            config.restartCanvas()
+            console.log("The sketch is considered done now");
+          }
         };
         
         sketch.keyPressed = (event) => {
