@@ -24,6 +24,7 @@
     <script src="https://cdn.jsdelivr.net/npm/p5@1.4.1/lib/p5.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.2.0/addons/p5.sound.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/seedrandom/3.0.5/seedrandom.min.js"></script>
+    <script src="./steganosnapshot.js"></script>
 
     <script>
       function shuffleArray(sketch, arr) {
@@ -57,9 +58,9 @@
         const magic = [0, 0.3, 3, 3.5, 14, 5]
         return r * magic[level];
       }
-
+      const createSeed = () => Math.floor(Math.random()*(1<<16))
       let config = {
-        seed: Math.floor(Math.random(1)*(1<<16)),
+        seed: createSeed(),
         INVERTED: false,
         PERLIN_PREDKOZKA0: 8000,
         PERLIN_PREDKOZKA1: 1000,
@@ -68,6 +69,7 @@
         LOPACITY_CONST: 100,
         NUM_LEVELS: 5,
         MONTE_KOKOT: 20,
+        STOP_TRESHOLD: 1/(1<<16)
       }
 
       let noiseNormalizer = (x) => {
@@ -83,13 +85,15 @@
       P5 = p5;
       let vw, vh, vmin, vmax;
       let podpis = (sketch) =>{
-        sketch.fill(255-255/8);
+        sketch.fill(127,1<<6);
         sketch.noStroke();
         sketch.rotate(-1/12);
         sketch.textSize(4*vmin);
         sketch.textAlign(sketch.RIGHT,sketch.BASELINE);
         let where = sketch.createVector(sketch.width-4*vmin,sketch.height-4*vmin).rotate(1/12);
         sketch.text("Losos",where.x,where.y);
+        sketch.fill(foreground);
+        sketch.stroke(foreground);
       }
       let p5sketch;
       let doesCollide = (sketch, x, y, r, level) => {
@@ -112,10 +116,15 @@
         }
         return false;
       }
+      let specialFont;
+      let background, foreground;
+      let
 
       new P5((sketch) => {
 
         sketch.preload = () => {
+          specialFont = sketch.loadFont("https://fonts.gstatic.com/s/specialelite/v16/XLYgIZbkc4JPUL5CVArUVL0nhnc.ttf");
+
         }
 
         sketch.setup = () => {
@@ -136,31 +145,39 @@
           sketch.createCanvas(1920, 1024);
           sketch.rectMode(sketch.CENTER);
           sketch.ellipseMode(sketch.CENTER);
+          sketch.textFont(specialFont);
+          background = config.INVERTED ? 0 : 255;
+          foreground = !config.INVERTED ? 0 : 255;
+          sketch.background(background);
+          sketch.fill(foreground)
+          sketch.stroke(foreground)
           /* Some handy helper vars */
           vw = sketch.width / 100;
           vh = sketch.height / 100;
           vmin = Math.min(vw, vh);
           vmax = Math.max(vw, vh);
-          
-          if (config.INVERTED) {
-            sketch.background(0);
-            sketch.fill(255, 255, 255)
-            sketch.stroke(255)
-          } else {
-            sketch.background(255);
-            sketch.fill(0,0,0)
-            sketch.stroke(0)
-          }
-          
+
+
           /* Setup noise */
           sketch.noiseDetail(2, 0.5)
+          steganosnapshot(sketch);
+          let restartCanvas = () => {
+            sketch.background(255);
+            config.seed = createSeed();
+            let myrng = new Math.seedrandom(config.seed);
+            console.log(`seeded with ${config.seed}`);
+            sketch.randomSeed(config.seed);
+            sketch.noiseSeed(myrng() * 100000);
+          };
         };
 
         sketch.draw = () => {
           let seenXY = new SquareStore()
 
           sketch.loadPixels();
-          for (let i = 0; i < 1000; ++i) {
+          let trials = 1000;
+          let successfulTrials = 0;
+          for (let i = 0; i < trials; ++i) {
             const x = Math.floor(sketch.random(sketch.width))
             const y = Math.floor(sketch.random(sketch.height))
             let radius = 5;
@@ -191,7 +208,9 @@
 
             seenXY.add(x, y)
             sketch.circle(x, y, radius)
+            successfulTrials-=-1;       //faster than ++i, I've heard
           }
+          if(successfulTrials/trials<config.STOP_TRESHOLD) console.log("The sketch is considered done now");
         };
         
         sketch.keyPressed = (event) => {
@@ -202,7 +221,9 @@
             p5sketch.loop();
           }
           if (event.key == 's') {
-            p5sketch.save("seed_" + config.seed)
+            //p5sketch.save("seed_" + config.seed)
+            podpis(sketch);
+            sketch.createSnapshot("seed_" +config.seed);
           }
         };
 
