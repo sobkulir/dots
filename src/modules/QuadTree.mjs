@@ -20,25 +20,24 @@ export class QuadTree {
 
         // (this.nodes === null) <=> is a leaf
         this.nodes = null
+        // Array of [x, y, data].
         this.points = []
         this.level = level || 0
     }
 
-    add(x, y) {
+    add(x, y, data) {
         if (this.nodes !== null) {
             // We can recurse.
             const [q, offX, offY] = this.getQuadrant(x, y)
-            this.nodes[q].add(x - offX, y - offY)
-            return
+            this.nodes[q].add(x - offX, y - offY, data)
         } else if (this.points.length < this.maxPoints || this.level == this.maxLevel) {
             // New object can be pushed into current node.
-            this.points.push([x, y])
-            return
+            this.points.push([x, y, data])
         } else {
             // We need to create another level.
             this.splitNodes()
             assert(this.nodes !== null)
-            this.add(x, y) // Dangerous :P
+            this.add(x, y, data) // Dangerous :P
         }
     }
 
@@ -46,9 +45,9 @@ export class QuadTree {
     // It's early-stopping mechanism.
     forEachInRect(rect, offX, offY, clbk) {
         if (this.nodes === null) {
-            for (let [x,y] of this.points) {
+            for (let [x,y,data] of this.points) {
                 if (rect.containsPoint(x, y)) {
-                    if (clbk(x + offX, y + offY)) {
+                    if (clbk(x + offX, y + offY, data)) {
                         return true
                     }
                 }
@@ -91,9 +90,9 @@ export class QuadTree {
                 this.maxPoints, this.maxLevel, this.level + 1)
         }
         
-        for (let [x,y] of this.points) {
+        for (let [x,y, data] of this.points) {
             // Living dangerously again.
-            this.add(x, y)
+            this.add(x, y, data)
         }
 
         this.points = []

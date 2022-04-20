@@ -3,11 +3,6 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"/>
-    <meta http-equiv="cache-control" content="max-age=0" />
-    <meta http-equiv="cache-control" content="no-store" />
-    <meta http-equiv="expires" content="-1" />
-    <meta http-equiv="expires" content="Tue, 01 Jan 1980 1:00:00 GMT" />
-    <meta http-equiv="pragma" content="no-cache" />
    
     <title>p5.js template</title>
     <style>
@@ -45,20 +40,22 @@
           .map(({ value }) => value)
       }
 
-      function levelToMargin(r, level) {
-        const magic = [[0, 3.7],
-                       [0, 5.1   ],
-                       [0, 50   ],
-                       [1,  6   ],
-                       [1,  20  ]]
-        return r * r * magic[level][0] + magic[level][1];
+      function levelToMarginAndRadius(sketch, level) {
+        const magic = [ [ [[5,0]], 4.7   ],
+                        [ [[3,0]], 4 ],
+                        [ [[2,1]], 6   ],
+                        [ [[1,1],[2, 4]],  3   ],
+                       [  [[1,1], [3, 4]],  15  ]]
+        const radii = magic[level][0]
+        const [r, c] = radii[Math.floor(sketch.random(1) * radii.length)]
+        return [r * r * c + magic[level][1], r]
       }
       const createSeed = () => Math.floor(Math.random()*(1<<16))
       let config = {
         seed: createSeed(),
-        INVERTED: false,
+        INVERTED: true,
         PERLIN_PREDKOZKA0: 2000,
-        PERLIN_PREDKOZKA1: 6000,
+        PERLIN_PREDKOZKA1: 5000,
         PERLIN_PREDKOZKA2: 2000,
         PERLIN_PREDKOZKA3: 1000,
         LOPACITY_CONST: 100,
@@ -160,39 +157,48 @@
           for (let i = 0; i < trials; ++i) {
             const x = Math.floor(sketch.random(sketch.width))
             const y = Math.floor(sketch.random(sketch.height))
-            if (((x - mid[0])**2 + (y - mid[1])**2) >= 500**2){
-              continue;
-            }
-            let radius = 5;
             let getContour = (x, y, div, klavir, max_contours) =>
-              Math.floor(
-                adamovVynalez(sketch, x / div, y / div, klavir) * max_contours)
-            
-            let cc = 0;
+            Math.floor(
+              adamovVynalez(sketch, x / div, y / div, klavir) * max_contours)
+              
+              let cc = 0;
             // for (let j = 0; j < 5; ++j) {
-            //   cc = getContour(x, y, config.PERLIN_PREDKOZKA0, cc + (j+1) * 30, 10)
-            // }
-            // cc = getContour(x, y, config.PERLIN_PREDKOZKA0, 0, 10)
-            // cc = getContour(x, y, config.PERLIN_PREDKOZKA0 * 3, cc + 300, 7)
-            const c1 = getContour(x, y, config.PERLIN_PREDKOZKA1 / 4.6, cc  + 5000, config.NUM_LEVELS)
-            // const c2 = getContour(x, y, config.PERLIN_PREDKOZKA2, c1 + 200, 9)
-            // const c3 = getContour(x, y, config.PERLIN_PREDKOZKA3, cc + 10000, 2)
-            const contour = c1;
-            const level = config.levelPermutation[contour];
-            if (level >= config.NUM_LEVELS - 2){
-              radius = Math.floor(Math.random() * (radius - 1.2 * (config.NUM_LEVELS - level))  + 1)
-            }
+              //   cc = getContour(x, y, config.PERLIN_PREDKOZKA0, cc + (j+1) * 30, 10)
+              // }
+              cc = getContour(x, y, config.PERLIN_PREDKOZKA0, 0, 3)
+              // cc = getContour(x, y, config.PERLIN_PREDKOZKA0 * 3, cc + 300, 5)
+              const c1 = getContour(x, y, config.PERLIN_PREDKOZKA1 / 4.6, cc  + 5000, config.NUM_LEVELS)
+              // const c2 = getContour(x, y, config.PERLIN_PREDKOZKA2, c1 + 200, 9)
+              // const c3 = getContour(x, y, config.PERLIN_PREDKOZKA3, cc + 10000, 2)
+              const contour = c1;
+              let level = config.levelPermutation[contour];
 
-            const hr = levelToMargin(radius, level)
-            const clbk = (xx, yy) => (((x - xx)**2) + ((y - yy)**2) < hr**2)
-            if (state.quadTree.forEachInRect(new Rect(x - hr , y - hr, 2 * hr, 2 * hr), 0, 0, clbk)) {
+              if (((x - mid[0])**2 + (y - mid[1])**2) >= 500**2){
+                if (((x - mid[0])**2 + (y - mid[1])**2) < 515**2 && [0].includes(level)) {
+                  ;
+                } else {
+                  continue;
+                }
+              }
+              const [hr, radius] = levelToMarginAndRadius(sketch, level)
+              
+            const clbk = (xx, yy, data) => {
+              const rad = ((Math.max(data.radius, radius) + 2)**2)
+              const normal = (hr**2)
+              const div = (data.level == level) ? normal : Math.min(rad, normal)
+              // const div = (hr**2)
+              return (((x - xx)**2) + ((y - yy)**2) < div)
+            }
+            const hh = 4*hr
+            if (state.quadTree.forEachInRect(new Rect(x - hh , y - hh, 2 * hh, 2 * hh), 0, 0, clbk)) {
               continue;
             }
 
-            state.quadTree.add(x, y)
+            state.quadTree.add(x, y, {radius: radius, level:level})
             state.dotCount++
             
             sketch.circle(x, y, radius)
+
             successfulTrials-=-1;       //faster than ++i, I've heard
           }
           // console.log(state.dotCount)
