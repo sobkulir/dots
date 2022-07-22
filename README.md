@@ -1,7 +1,5 @@
 # Dots
 
-Fake it till you make it
-
 ## Steganosnapshot
 
 loading steganosnapshot
