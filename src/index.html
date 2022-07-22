@@ -1,234 +1,258 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"/>
-   
-    <title>p5.js template</title>
-    <style>
-      html, body {
-        margin: 0;
-        height: 100%;
-      }
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
 
-      body {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: #f5f5f5;
-      }
+  <title>p5.js template</title>
+  <style>
+    html,
+    body {
+      margin: 0;
+      height: 100%;
+    }
 
-      canvas {
-        box-shadow: 0 5px 30px 0 rgba(0, 0, 0, 0.1);
-      }
-    </style>
-    <script src="https://cdn.jsdelivr.net/npm/p5@1.4.1/lib/p5.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.2.0/addons/p5.sound.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/seedrandom/3.0.5/seedrandom.min.js"></script>
-    <script src="./steganosnapshot.js"></script>
-    <script type="module" src="modules/QuadTree.mjs"></script>
-    <script type="module" src="modules/Rect.mjs"></script>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f5f5f5;
+    }
 
-    <script type="module">
-      import {QuadTree} from './modules/QuadTree.mjs'
-      import {Rect} from './modules/Rect.mjs'
+    canvas {
+      box-shadow: 0 5px 30px 0 rgba(0, 0, 0, 0.1);
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/p5@1.4.1/lib/p5.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.2.0/addons/p5.sound.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/seedrandom/3.0.5/seedrandom.min.js"></script>
+  <script src="https://unpkg.com/p5.js-svg@1.3.1"></script>
+  <script src="./steganosnapshot.js"></script>
+  <script type="module" src="modules/QuadTree.mjs"></script>
+  <script type="module" src="modules/Rect.mjs"></script>
 
-      function shuffleArray(sketch, arr) {
-        return arr
-          .map(value => ({ value, sort: sketch.random(1) }))
-          .sort((a, b) => a.sort - b.sort)
-          .map(({ value }) => value)
-      }
+  <script type="module">
+    import { QuadTree } from './modules/QuadTree.mjs'
+    import { Rect } from './modules/Rect.mjs'
 
-      function levelToMarginAndRadius(sketch, level) {
-        const magic = [ [ [[5,0]], 4.7   ],
-                        [ [[3,0]], 4 ],
-                        [ [[2,1]], 6   ],
-                        [ [[1,1],[2, 4]],  3   ],
-                       [  [[1,1], [3, 4]],  15  ]]
-        const radii = magic[level][0]
-        const [r, c] = radii[Math.floor(sketch.random(1) * radii.length)]
-        return [r * r * c + magic[level][1], r]
-      }
-      const createSeed = () => Math.floor(Math.random()*(1<<16))
-      let config = {
-        seed: createSeed(),
-        INVERTED: true,
-        PERLIN_PREDKOZKA0: 2000,
-        PERLIN_PREDKOZKA1: 5000,
-        PERLIN_PREDKOZKA2: 2000,
-        PERLIN_PREDKOZKA3: 1000,
-        LOPACITY_CONST: 100,
-        NUM_LEVELS: 5,
-        MONTE_KOKOT: 20,
-        STOP_TRESHOLD: 1/(1<<22)
-      }
+    function shuffleArray(sketch, arr) {
+      return arr
+        .map(value => ({ value, sort: sketch.random(1) }))
+        .sort((a, b) => a.sort - b.sort)
+        .map(({ value }) => value)
+    }
 
-      window.state = {
-        quadTree: null,
-        dotCount: 0,
-      }
+    function levelToMarginAndRadius(sketch, level) {
+      const magic = [[[[5, 0]], 4.7],
+      [[[3, 0]], 4],
+      [[[2, 1]], 6],
+      [[[1, 1], [2, 4]], 3],
+      [[[1, 1], [3, 4]], 15]]
+      const radii = magic[level][0]
+      const [r, c] = radii[Math.floor(sketch.random(1) * radii.length)]
+      return [r * r * c + magic[level][1], r]
+    }
+    const createSeed = () => Math.floor(Math.random() * (1 << 16))
+    let config = {
+      seed: null,
+      INVERTED: true,
+      NUM_LEVELS: 5,
+      STOP_TRESHOLD: 1 / (1 << 22)
+    }
 
-      let noiseNormalizer = (x) => {
-        x = x*2;
-        let t = 1 / 482 * ((241 * Math.sqrt(2323240000 * x ** 2 - 4391492000 * x + 2110825413) + 11616200 * x - 10978730) ** (1 / 3)
-          - 12737 / (241 * Math.sqrt(2323240000 * x ** 2 - 4391492000 * x + 2110825413) + 11616200 * x - 10978730) ** (1 / 3) + 235);
-        return 3 * (1 - t) * t ** 2+t ** 3;
-      };
-      let adamovVynalez = (sketch, ...dims) => {
-        return noiseNormalizer(sketch.noise(...dims));
-      }
+    window.state = {
+      quadTree: null,
+      dotCount: 0,
+    }
 
-      window.P5 = p5;
-      let vw, vh, vmin, vmax;
-      let podpis = (sketch) =>{
-        sketch.fill(127,1<<6);
-        sketch.noStroke();
-        sketch.rotate(-1/12);
-        sketch.textSize(4*vmin);
-        sketch.textAlign(sketch.RIGHT,sketch.BASELINE);
-        let where = sketch.createVector(sketch.width-4*vmin,sketch.height-4*vmin).rotate(1/12);
-        sketch.text("Losos",where.x,where.y);
-        sketch.fill(foreground);
-        sketch.stroke(foreground);
-      }
-      let p5sketch;
+    let noiseNormalizer = (x) => {
+      x = x * 2;
+      let t = 1 / 482 * ((241 * Math.sqrt(2323240000 * x ** 2 - 4391492000 * x + 2110825413) + 11616200 * x - 10978730) ** (1 / 3)
+        - 12737 / (241 * Math.sqrt(2323240000 * x ** 2 - 4391492000 * x + 2110825413) + 11616200 * x - 10978730) ** (1 / 3) + 235);
+      return 3 * (1 - t) * t ** 2 + t ** 3;
+    };
 
-      let specialFont;
-      let background, foreground;
+    let adamovVynalez = (sketch, ...dims) => {
+      return noiseNormalizer(sketch.noise(...dims));
+    }
 
-      new P5((sketch) => {
+    let getContour = (sketch, x, y, div, klavir, max_contours) =>
+      Math.floor(
+        adamovVynalez(sketch, x / div, y / div, klavir) * max_contours)
 
-        sketch.preload = () => {
-          specialFont = sketch.loadFont("https://fonts.gstatic.com/s/specialelite/v16/XLYgIZbkc4JPUL5CVArUVL0nhnc.ttf");
+    let sampleContour = (sketch, x, y, num_levels) => {
+      // const cc = getContour(sketch, x, y, 3000, 0, 3);
+      // return getContour(sketch, x, y, 2500, cc * 10 + 10, num_levels)
+      return getContour(sketch, x, y, 1000, 0, num_levels)
+    }
 
+    let trySeed = (sketch, num_levels) => {
+      const w_half = Math.floor(sketch.width / 2)
+      const h_half = Math.floor(sketch.height / 2)
+      const dirs = [
+        [[w_half, 0], [w_half, h_half], [0, 1]],
+        [[w_half, h_half], [w_half, sketch.height], [0, 1]],
+        [[0, h_half], [w_half, h_half], [1, 0]],
+        [[w_half, h_half], [sketch.width, h_half], [1, 0]],
+      ]
+      for (let dir of dirs) {
+        const sp = dir[0];
+        const ep = dir[1];
+        const [dx, dy] = dir[2];
+        let conts1 = []
+        let conts2 = []
+        for (let xy = sp; xy[0] != ep[0] || xy[1] != ep[1]; xy = [xy[0] + dx, xy[1] + dy]) {
+          // conts1.push(getContour(sketch, xy[0], xy[1], 3000, 0, 3))
+          conts2.push(sampleContour(sketch, xy[0], xy[1], num_levels))
         }
+        if ((new Set(conts2)).size < 3) {
+          return true;
+        }
+      }
+      return false
+    }
 
-        sketch.setup = () => {
-          /* Seeding */
-          p5sketch = sketch;
+    window.P5 = p5;
+    let vw, vh, vmin, vmax;
+    let podpis = (sketch) => {
+      sketch.fill(127, 1 << 6);
+      sketch.noStroke();
+      sketch.rotate(-1 / 12);
+      sketch.textSize(4 * vmin);
+      sketch.textAlign(sketch.RIGHT, sketch.BASELINE);
+      let where = sketch.createVector(sketch.width - 4 * vmin, sketch.height - 4 * vmin).rotate(1 / 12);
+      sketch.text("Losos", where.x, where.y);
+      sketch.fill(foreground);
+      sketch.stroke(foreground);
+    }
+    let p5sketch;
+
+    let specialFont;
+    let background, foreground;
+
+    new P5((sketch) => {
+
+      sketch.preload = () => {
+        specialFont = sketch.loadFont("https://fonts.gstatic.com/s/specialelite/v16/XLYgIZbkc4JPUL5CVArUVL0nhnc.ttf");
+
+      }
+
+      sketch.setup = () => {
+        /* Seeding */
+        p5sketch = sketch;
+        sketch.createCanvas(950, 950);
+        do {
+          config.seed = createSeed();
+          let myrng = new Math.seedrandom(config.seed);
+          sketch.randomSeed(config.seed);
+          sketch.noiseSeed(myrng() * 100000);
+          /* Setup noise */
+          sketch.noiseDetail(2, 0.5)
+        } while (trySeed(sketch, config.NUM_LEVELS))
+
+        /* Generate level permutation only after setting the seed */
+        config.levelPermutation = shuffleArray(sketch, Array.from(Array(config.NUM_LEVELS).keys()));
+        // config.levelPermutation = Array.from(Array(config.NUM_LEVELS).keys());
+
+        /* Creating canvas with shadowy edges (shadows defined in css) */
+        // sketch.createCanvas(sketch.windowWidth*15/16, sketch.windowHeight-sketch.windowWidth*1/16);
+        state.quadTree = new QuadTree(new Rect(0, 0, sketch.width, sketch.height), 200, 5)
+        sketch.rectMode(sketch.CENTER);
+        sketch.ellipseMode(sketch.CENTER);
+        sketch.textFont(specialFont);
+        background = config.INVERTED ? 0 : 255;
+        foreground = !config.INVERTED ? 0 : 255;
+        sketch.background(background);
+        sketch.fill(foreground)
+        sketch.stroke(foreground)
+        /* Some handy helper vars */
+        vw = sketch.width / 100;
+        vh = sketch.height / 100;
+        vmin = Math.min(vw, vh);
+        vmax = Math.max(vw, vh);
+
+
+        steganosnapshot(sketch);
+        config.restartCanvas = () => {
+          sketch.background(255);
+          config.seed = createSeed();
+          state.quadTree = new QuadTree(new Rect(0, 0, 1920, 1024), 40, 18)
           let myrng = new Math.seedrandom(config.seed);
           console.log(`seeded with ${config.seed}`);
           sketch.randomSeed(config.seed);
           sketch.noiseSeed(myrng() * 100000);
-          
-          /* Generate level permutation only after setting the seed */
-          config.levelPermutation = shuffleArray(sketch, Array.from(Array(config.NUM_LEVELS).keys()));
-          // config.levelPermutation = Array.from(Array(config.NUM_LEVELS).keys());
-          
-          /* Creating canvas with shadowy edges (shadows defined in css) */
-          // sketch.createCanvas(sketch.windowWidth*15/16, sketch.windowHeight-sketch.windowWidth*1/16);
-          sketch.createCanvas(1200, 1200);
-          state.quadTree = new QuadTree(new Rect(0, 0, sketch.width, sketch.height), 200, 5)
-          sketch.rectMode(sketch.CENTER);
-          sketch.ellipseMode(sketch.CENTER);
-          sketch.textFont(specialFont);
-          background = config.INVERTED ? 0 : 255;
-          foreground = !config.INVERTED ? 0 : 255;
-          sketch.background(background);
-          sketch.fill(foreground)
-          sketch.stroke(foreground)
-          /* Some handy helper vars */
-          vw = sketch.width / 100;
-          vh = sketch.height / 100;
-          vmin = Math.min(vw, vh);
-          vmax = Math.max(vw, vh);
-
-
-          /* Setup noise */
-          sketch.noiseDetail(2, 0.5)
-          steganosnapshot(sketch);
-          config.restartCanvas = () => {
-            sketch.background(255);
-            config.seed = createSeed();
-            state.quadTree = new QuadTree(new Rect(0, 0, 1920, 1024), 40, 18)
-            let myrng = new Math.seedrandom(config.seed);
-            console.log(`seeded with ${config.seed}`);
-            sketch.randomSeed(config.seed);
-            sketch.noiseSeed(myrng() * 100000);
-          };
-
         };
 
-        sketch.draw = () => {
-          const mid = [sketch.width / 2, sketch.height / 2]
-          let trials = 1000;
-          let successfulTrials = 0;
-          for (let i = 0; i < trials; ++i) {
-            const x = Math.floor(sketch.random(sketch.width))
-            const y = Math.floor(sketch.random(sketch.height))
-            let getContour = (x, y, div, klavir, max_contours) =>
-            Math.floor(
-              adamovVynalez(sketch, x / div, y / div, klavir) * max_contours)
-              
-              let cc = 0;
-            // for (let j = 0; j < 5; ++j) {
-              //   cc = getContour(x, y, config.PERLIN_PREDKOZKA0, cc + (j+1) * 30, 10)
-              // }
-              cc = getContour(x, y, config.PERLIN_PREDKOZKA0, 0, 3)
-              // cc = getContour(x, y, config.PERLIN_PREDKOZKA0 * 3, cc + 300, 5)
-              const c1 = getContour(x, y, config.PERLIN_PREDKOZKA1 / 4.6, cc  + 5000, config.NUM_LEVELS)
-              // const c2 = getContour(x, y, config.PERLIN_PREDKOZKA2, c1 + 200, 9)
-              // const c3 = getContour(x, y, config.PERLIN_PREDKOZKA3, cc + 10000, 2)
-              const contour = c1;
-              let level = config.levelPermutation[contour];
+      };
 
-              if (((x - mid[0])**2 + (y - mid[1])**2) >= 500**2){
-                if (((x - mid[0])**2 + (y - mid[1])**2) < 515**2 && [0].includes(level)) {
-                  ;
-                } else {
-                  continue;
-                }
-              }
-              const [hr, radius] = levelToMarginAndRadius(sketch, level)
-              
-            const clbk = (xx, yy, data) => {
-              const rad = ((Math.max(data.radius, radius) + 2)**2)
-              const normal = (hr**2)
-              const div = (data.level == level) ? normal : Math.min(rad, normal)
-              // const div = (hr**2)
-              return (((x - xx)**2) + ((y - yy)**2) < div)
-            }
-            const hh = 4*hr
-            if (state.quadTree.forEachInRect(new Rect(x - hh , y - hh, 2 * hh, 2 * hh), 0, 0, clbk)) {
+      sketch.draw = () => {
+        const mid = [sketch.width / 2, sketch.height / 2]
+        let trials = 1000;
+        let successfulTrials = 0;
+        for (let i = 0; i < trials; ++i) {
+          const x = Math.floor(sketch.random(sketch.width))
+          const y = Math.floor(sketch.random(sketch.height))
+
+          const contour = sampleContour(sketch, x, y, config.NUM_LEVELS)
+          let level = config.levelPermutation[contour];
+
+          if (((x - mid[0]) ** 2 + (y - mid[1]) ** 2) >= 450 ** 2) {
+            if (((x - mid[0]) ** 2 + (y - mid[1]) ** 2) < 460 ** 2 && [0, 4].includes(level)) {
+              ;
+            } else {
               continue;
             }
-
-            state.quadTree.add(x, y, {radius: radius, level:level})
-            state.dotCount++
-            
-            sketch.circle(x, y, radius)
-
-            successfulTrials-=-1;       //faster than ++i, I've heard
           }
-          // console.log(state.dotCount)
+          const [hr, radius] = levelToMarginAndRadius(sketch, level)
 
-          // if(successfulTrials/trials<config.STOP_TRESHOLD) {
-          //   console.log(successfulTrials/trials, config.STOP_TRESHOLD)
-          //   config.restartCanvas()
-          //   console.log("The sketch is considered done now");
-          // }
-        };
-        
-        sketch.keyPressed = (event) => {
-          if (event.key == 'p') {
-            p5sketch.noLoop();
+          const clbk = (xx, yy, data) => {
+            const rad = ((Math.max(data.radius, radius) + 2) ** 2)
+            const normal = (hr ** 2)
+            const div = (data.level == level) ? normal : Math.min(rad, normal)
+            // const div = (hr**2)
+            return (((x - xx) ** 2) + ((y - yy) ** 2) < div)
           }
-          if (event.key == 'r') {
-            p5sketch.loop();
+          const hh = 4 * hr
+          if (state.quadTree.forEachInRect(new Rect(x - hh, y - hh, 2 * hh, 2 * hh), 0, 0, clbk)) {
+            continue;
           }
-          if (event.key == 's') {
-            //p5sketch.save("seed_" + config.seed)
-            podpis(sketch);
-            sketch.createSnapshot("seed_" +config.seed);
-          }
-        };
+          state.quadTree.add(x, y, { radius: radius, level: level })
+          state.dotCount++
 
-      }, "container");
+          sketch.circle(x, y, radius)
 
-    </script>
+          successfulTrials -= -1;       //faster than ++i, I've heard
+        }
+        // console.log(state.dotCount)
+
+        // if(successfulTrials/trials<config.STOP_TRESHOLD) {
+        //   console.log(successfulTrials/trials, config.STOP_TRESHOLD)
+        //   config.restartCanvas()
+        //   console.log("The sketch is considered done now");
+        // }
+      };
+
+      sketch.keyPressed = (event) => {
+        if (event.key == 'p') {
+          p5sketch.noLoop();
+        }
+        if (event.key == 'r') {
+          p5sketch.loop();
+        }
+        if (event.key == 's') {
+          //p5sketch.save("seed_" + config.seed)
+          sketch.createSnapshot("seed_" + config.seed);
+        }
+      };
+
+    }, "container");
+
+  </script>
 </head>
+
 <body>
-<div id="container"></div>
+  <div id="container"></div>
 </body>
+
 </html>

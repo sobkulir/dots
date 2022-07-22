@@ -41,8 +41,8 @@ export class QuadTree {
         }
     }
 
-    // Stops after a clbk returns true, otherwise goes through all points and returns false.
-    // It's early-stopping mechanism.
+    // Stops after the clbk returns true, otherwise goes through all points and returns false.
+    // It's an early-stopping mechanism.
     forEachInRect(rect, offX, offY, clbk) {
         if (this.nodes === null) {
             for (let [x,y,data] of this.points) {
