@@ -1,12 +1,9 @@
 # Dots
 
-## Steganosnapshot
+Turning dots into eye candy.
 
-loading steganosnapshot
+![Example artwork 1](examples/nohead.png)
+![Example artwork 2](examples/on_white.png)
+![Example artwork 3](examples/pipe.png)
 
-```js
-p5sketch.loadCodeFromFile("filename") //address works like https://p5js.org/reference/#/p5/loadImage
-p5sketch.loadCodeFromCanvas()   //prints the code to console
-```
-
-It's not much but it's honest work
+Demo: [https://sobkulir.github.io/dots/](https://sobkulir.github.io/dots/)
