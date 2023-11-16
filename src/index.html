@@ -25,9 +25,10 @@
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/p5@1.4.1/lib/p5.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.2.0/addons/p5.sound.min.js"></script>
+  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.2.0/addons/p5.sound.min.js"></script> -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/seedrandom/3.0.5/seedrandom.min.js"></script>
-  <script src="https://unpkg.com/p5.js-svg@1.3.1"></script>
+  <script src="https://unpkg.com/p5.js-svg@1.5.1"></script>
+  <!-- <script src="https://unpkg.com/abcjs@6.0.0-beta.33/dist/abcjs-basic-min.js"></script> -->
   <script src="./steganosnapshot.js"></script>
   <script type="module" src="modules/QuadTree.mjs"></script>
   <script type="module" src="modules/Rect.mjs"></script>
@@ -56,14 +57,18 @@
     const createSeed = () => Math.floor(Math.random() * (1 << 16))
     let config = {
       seed: null,
-      INVERTED: true,
+      INVERTED: false,
       NUM_LEVELS: 5,
-      STOP_TRESHOLD: 1 / (1 << 22)
+      STOP_TRESHOLD: 1 / (1 << 22),
+      SVGS: [
+        ['imgs/test.svg', 100],
+      ]
     }
 
     window.state = {
       quadTree: null,
       dotCount: 0,
+      svgs: null,
     }
 
     let noiseNormalizer = (x) => {
@@ -76,7 +81,15 @@
     let adamovVynalez = (sketch, ...dims) => {
       return noiseNormalizer(sketch.noise(...dims));
     }
-
+    function rotate_and_draw_image(sketch, img, img_x, img_y, img_width, img_height, img_angle){
+      sketch.imageMode(sketch.CENTER);
+      sketch.translate(img_x+img_width/2, img_y+img_width/2);
+      sketch.rotate(sketch.PI/180*img_angle);
+      sketch.image(img, 0, 0, img_width, img_height);
+      sketch.rotate(-sketch.PI / 180 * img_angle);
+      sketch.translate(-(img_x+img_width/2), -(img_y+img_width/2));
+      sketch.imageMode(sketch.CORNER);
+    }
     let getContour = (sketch, x, y, div, klavir, max_contours) =>
       Math.floor(
         adamovVynalez(sketch, x / div, y / div, klavir) * max_contours)
@@ -135,13 +148,14 @@
 
       sketch.preload = () => {
         specialFont = sketch.loadFont("https://fonts.gstatic.com/s/specialelite/v16/XLYgIZbkc4JPUL5CVArUVL0nhnc.ttf");
-
+        state.svgs = config.SVGS.map((svg) => {return {img: sketch.loadSVG(svg[0]), prob: svg[1]}});
+        console.log(state.svgs)
       }
 
       sketch.setup = () => {
         /* Seeding */
         p5sketch = sketch;
-        sketch.createCanvas(950, 950);
+        sketch.createCanvas(950, 950, sketch.SVG);
         do {
           config.seed = createSeed();
           let myrng = new Math.seedrandom(config.seed);
@@ -157,7 +171,7 @@
 
         /* Creating canvas with shadowy edges (shadows defined in css) */
         // sketch.createCanvas(sketch.windowWidth*15/16, sketch.windowHeight-sketch.windowWidth*1/16);
-        state.quadTree = new QuadTree(new Rect(0, 0, sketch.width, sketch.height), 200, 5)
+        state.quadTree = new QuadTree(new Rect(0, 0, sketch.width*2, sketch.height*2), 200, 5)
         sketch.rectMode(sketch.CENTER);
         sketch.ellipseMode(sketch.CENTER);
         sketch.textFont(specialFont);
@@ -187,50 +201,39 @@
       };
 
       sketch.draw = () => {
-        const mid = [sketch.width / 2, sketch.height / 2]
         let trials = 1000;
-        let successfulTrials = 0;
+        let successfulTrials = 0
+
         for (let i = 0; i < trials; ++i) {
           const x = Math.floor(sketch.random(sketch.width))
           const y = Math.floor(sketch.random(sketch.height))
+          const svg = state.svgs[Math.floor(sketch.random(state.svgs.length))]
 
-          const contour = sampleContour(sketch, x, y, config.NUM_LEVELS)
-          let level = config.levelPermutation[contour];
-
-          if (((x - mid[0]) ** 2 + (y - mid[1]) ** 2) >= 450 ** 2) {
-            if (((x - mid[0]) ** 2 + (y - mid[1]) ** 2) < 460 ** 2 && [0, 4].includes(level)) {
-              ;
-            } else {
-              continue;
-            }
-          }
-          const [hr, radius] = levelToMarginAndRadius(sketch, level)
+          const w = 50
+          const h = 100
 
           const clbk = (xx, yy, data) => {
-            const rad = ((Math.max(data.radius, radius) + 2) ** 2)
-            const normal = (hr ** 2)
-            const div = (data.level == level) ? normal : Math.min(rad, normal)
-            // const div = (hr**2)
-            return (((x - xx) ** 2) + ((y - yy) ** 2) < div)
+            return true
           }
-          const hh = 4 * hr
-          if (state.quadTree.forEachInRect(new Rect(x - hh, y - hh, 2 * hh, 2 * hh), 0, 0, clbk)) {
+
+          if (state.quadTree.forEachInRect(new Rect(x, y, w, h), 0, 0, clbk)) {
             continue;
           }
-          state.quadTree.add(x, y, { radius: radius, level: level })
-          state.dotCount++
+          state.quadTree.add(x, y, { w: w, h:h })
+          state.quadTree.add(x+w, y, { w: w, h:h })
+          state.quadTree.add(x+w, y+h, { w: w, h:h })
+          state.quadTree.add(x, y+h, { w: w, h:h })
 
-          sketch.circle(x, y, radius)
-
-          successfulTrials -= -1;       //faster than ++i, I've heard
+          rotate_and_draw_image(sketch, svg.img, x,y, w, h, sketch.random(180))
+          successfulTrials++
         }
         // console.log(state.dotCount)
 
-        // if(successfulTrials/trials<config.STOP_TRESHOLD) {
-        //   console.log(successfulTrials/trials, config.STOP_TRESHOLD)
-        //   config.restartCanvas()
-        //   console.log("The sketch is considered done now");
-        // }
+        if(successfulTrials/trials<config.STOP_TRESHOLD) {
+          console.log(successfulTrials/trials, config.STOP_TRESHOLD)
+          // config.restartCanvas()
+          console.log("The sketch is considered done now");
+        }
       };
 
       sketch.keyPressed = (event) => {
